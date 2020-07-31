@@ -16,9 +16,14 @@ class EmailVerificationService
     const PER_HOUR_KEY = 'hour-attempts-';
     const INVALID_ATTEMPTS_KEY = 'invalid-';
 
-    private function generateCode(): string
+    /**
+     * @var Generator
+     */
+    private $generator;
+
+    public function __construct(Generator $generator)
     {
-        return strval(rand(1000, 9999));
+        $this->generator = $generator;
     }
 
     private function codeAlreadySent(string $email): bool
@@ -57,7 +62,7 @@ class EmailVerificationService
     {
         $this->validateCodeCanBeSent($email);
 
-        $code = $this->generateCode();
+        $code = $this->generator->generateCode();
 
         Mail::to($email)->queue(new VerificationCode($code));
 
@@ -72,9 +77,11 @@ class EmailVerificationService
 
         if ($attempts >= self::CHECK_ATTEMPTS_LIMIT) {
             Cache::forget(self::CODE_SENT_KEY . $email);
-        }
 
-        Cache::put($key, $attempts);
+            Cache::forget($key);
+        } else {
+            Cache::put($key, $attempts);
+        }
     }
 
     private function invalidateCacheForEmail(string $email): void

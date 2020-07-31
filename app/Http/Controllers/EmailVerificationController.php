@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Services\EmailVerificationService;
 use Illuminate\Http\Request;
 
+/**
+ * Решил, что будет уместнее вместо status - error отправлять корректный http-код, а в теле - ошибку.
+ */
+
 class EmailVerificationController extends Controller
 {
     /**
