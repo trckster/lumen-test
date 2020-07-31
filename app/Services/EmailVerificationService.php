@@ -10,9 +10,11 @@ class EmailVerificationService
 {
     const CODE_LIFE_TIME = 5 * 60;
     const PER_HOUR_ATTEMPTS_LIMIT = 5;
+    const CHECK_ATTEMPTS_LIMIT = 3;
 
     const CODE_SENT_KEY = 'code-';
     const PER_HOUR_KEY = 'hour-attempts-';
+    const INVALID_ATTEMPTS_KEY = 'invalid-';
 
     private function generateCode(): string
     {
@@ -62,12 +64,44 @@ class EmailVerificationService
         $this->processCodeSendingAftermath($email, $code);
     }
 
+    private function increaseInvalidAttemptsCount(string $email): void
+    {
+        $key = self::INVALID_ATTEMPTS_KEY . $email;
+
+        $attempts = Cache::get($key, 0) + 1;
+
+        if ($attempts >= self::CHECK_ATTEMPTS_LIMIT) {
+            Cache::forget(self::CODE_SENT_KEY . $email);
+        }
+
+        Cache::put($key, $attempts);
+    }
+
+    private function invalidateCacheForEmail(string $email): void
+    {
+        Cache::forget(self::CODE_SENT_KEY . $email);
+
+        Cache::forget(self::PER_HOUR_KEY . $email);
+
+        Cache::forget(self::INVALID_ATTEMPTS_KEY . $email);
+    }
+
     public function checkCode(string $email, string $code): void
     {
         $realCode = Cache::get(self::CODE_SENT_KEY . $email);
 
+        if ($realCode === null) {
+            abort(412, 'no_code');
+        }
+
         if ($realCode !== $code) {
+            $this->increaseInvalidAttemptsCount($email);
+
             abort(412, 'bad_code');
         }
+
+        $this->invalidateCacheForEmail($email);
+
+        // Email confirmed, do something about it
     }
 }

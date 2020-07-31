@@ -117,6 +117,18 @@ class EmailVerificationTest extends TestCase
             ->with(EmailVerificationService::CODE_SENT_KEY . $email)
             ->andReturn($code);
 
+        Cache::shouldReceive('forget')
+            ->once()
+            ->with(EmailVerificationService::CODE_SENT_KEY . $email);
+
+        Cache::shouldReceive('forget')
+            ->once()
+            ->with(EmailVerificationService::PER_HOUR_KEY . $email);
+
+        Cache::shouldReceive('forget')
+            ->once()
+            ->with(EmailVerificationService::INVALID_ATTEMPTS_KEY . $email);
+
         $this->json('GET', 'checkCode', ['email' => $email, 'code' => $code])
             ->seeStatusCode(200)
             ->seeJson(['status' => 'success']);
@@ -135,8 +147,33 @@ class EmailVerificationTest extends TestCase
             ->with(EmailVerificationService::CODE_SENT_KEY . $email)
             ->andReturn($code);
 
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::INVALID_ATTEMPTS_KEY . $email, 0);
+
+        Cache::shouldReceive('put')
+            ->once()
+            ->with(EmailVerificationService::INVALID_ATTEMPTS_KEY . $email, 1);
+
         $this->json('GET', 'checkCode', ['email' => $email, 'code' => '8753'])
             ->seeStatusCode(412)
             ->seeJson(['bad_code']);
+    }
+
+    /**
+     * @test
+     */
+    public function can_see_message_when_code_for_email_absent()
+    {
+        $email = 'my@mail.ru';
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::CODE_SENT_KEY . $email)
+            ->andReturn(null);
+
+        $this->json('GET', 'checkCode', ['email' => $email, 'code' => '8753'])
+            ->seeStatusCode(412)
+            ->seeJson(['no_code']);
     }
 }
