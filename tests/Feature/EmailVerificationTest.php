@@ -77,7 +77,7 @@ class EmailVerificationTest extends TestCase
             ->with(EmailVerificationService::CODE_SENT_KEY . $email)
             ->andReturn(true);
 
-        $this->json('GET', 'sendCode', ['email' => 'my@mail.ru'])
+        $this->json('GET', 'sendCode', ['email' => $email])
             ->seeStatusCode(429)
             ->seeJson(['code_has_been_already_sent']);
     }
@@ -99,8 +99,44 @@ class EmailVerificationTest extends TestCase
             ->with(EmailVerificationService::PER_HOUR_KEY . $email, 0)
             ->andReturn(EmailVerificationService::PER_HOUR_ATTEMPTS_LIMIT);
 
-        $this->json('GET', 'sendCode', ['email' => 'my@mail.ru'])
+        $this->json('GET', 'sendCode', ['email' => $email])
             ->seeStatusCode(429)
             ->seeJson(['too_many_attempt_per_hour']);
+    }
+
+    /**
+     * @test
+     */
+    public function can_check_code()
+    {
+        $email = 'my@mail.ru';
+        $code = '1234';
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::CODE_SENT_KEY . $email)
+            ->andReturn($code);
+
+        $this->json('GET', 'checkCode', ['email' => $email, 'code' => $code])
+            ->seeStatusCode(200)
+            ->seeJson(['status' => 'success']);
+    }
+
+    /**
+     * @test
+     */
+    public function can_check_code_is_invalid()
+    {
+        $email = 'my@mail.ru';
+        $code = '1234';
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::CODE_SENT_KEY . $email)
+            ->andReturn($code);
+
+        $this->json('GET', 'checkCode', ['email' => $email, 'code' => '8753'])
+            ->seeStatusCode(412)
+            ->seeJson(['bad_code']);
     }
 }

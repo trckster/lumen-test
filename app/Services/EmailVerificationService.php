@@ -11,7 +11,7 @@ class EmailVerificationService
     const CODE_LIFE_TIME = 5 * 60;
     const PER_HOUR_ATTEMPTS_LIMIT = 5;
 
-    const CODE_SENT_KEY = 'code-sent-';
+    const CODE_SENT_KEY = 'code-';
     const PER_HOUR_KEY = 'hour-attempts-';
 
     private function generateCode(): string
@@ -42,9 +42,9 @@ class EmailVerificationService
         }
     }
 
-    private function processCodeSendingAftermath(string $email): void
+    private function processCodeSendingAftermath(string $email, string $code): void
     {
-        Cache::put(self::CODE_SENT_KEY . $email, true, self::CODE_LIFE_TIME);
+        Cache::put(self::CODE_SENT_KEY . $email, $code, self::CODE_LIFE_TIME);
 
         $perHourKey = self::PER_HOUR_KEY . $email;
 
@@ -59,6 +59,15 @@ class EmailVerificationService
 
         Mail::to($email)->queue(new VerificationCode($code));
 
-        $this->processCodeSendingAftermath($email);
+        $this->processCodeSendingAftermath($email, $code);
+    }
+
+    public function checkCode(string $email, string $code): void
+    {
+        $realCode = Cache::get(self::CODE_SENT_KEY . $email);
+
+        if ($realCode !== $code) {
+            abort(412, 'bad_code');
+        }
     }
 }
