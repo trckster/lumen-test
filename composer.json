@@ -6,6 +6,8 @@
     "type": "project",
     "require": {
         "php": "^7.2.5",
+        "illuminate/mail": "^7.22",
+        "illuminate/redis": "^7.22",
         "laravel/lumen-framework": "^7.0"
     },
     "require-dev": {
