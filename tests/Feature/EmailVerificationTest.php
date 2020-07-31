@@ -17,6 +17,11 @@ class EmailVerificationTest extends TestCase
             ->with(EmailVerificationService::CODE_SENT_KEY . $email)
             ->andReturn(false);
 
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::PER_HOUR_KEY . $email, 0)
+            ->andReturn(0);
+
         Cache::shouldReceive('put')
             ->once()
             ->with(
@@ -25,6 +30,18 @@ class EmailVerificationTest extends TestCase
                 EmailVerificationService::CODE_LIFE_TIME
             );
 
+        Cache::shouldReceive('has')
+            ->once()
+            ->with(EmailVerificationService::PER_HOUR_KEY . $email)
+            ->andReturn(false);
+
+        Cache::shouldReceive('put')
+            ->once()
+            ->with(
+                EmailVerificationService::PER_HOUR_KEY . $email,
+                1,
+                3600
+            );
     }
 
     /**
@@ -53,16 +70,7 @@ class EmailVerificationTest extends TestCase
      */
     public function cant_send_code_twice()
     {
-        Mail::fake();
-
         $email = 'my@mail.ru';
-
-        $this->mockCacheForCodeSending($email);
-
-        $this->json('GET','sendCode', ['email' => 'my@mail.ru'])
-            ->seeJson([
-                'status' => 'success'
-            ]);
 
         Cache::shouldReceive('has')
             ->once()
@@ -72,5 +80,27 @@ class EmailVerificationTest extends TestCase
         $this->json('GET', 'sendCode', ['email' => 'my@mail.ru'])
             ->seeStatusCode(429)
             ->seeJson(['code_has_been_already_sent']);
+    }
+
+    /**
+     * @test
+     */
+    public function cant_send_code_more_than_five_times_per_hour()
+    {
+        $email = 'my@mail.ru';
+
+        Cache::shouldReceive('has')
+            ->once()
+            ->with(EmailVerificationService::CODE_SENT_KEY . $email)
+            ->andReturn(false);
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->with(EmailVerificationService::PER_HOUR_KEY . $email, 0)
+            ->andReturn(EmailVerificationService::PER_HOUR_ATTEMPTS_LIMIT);
+
+        $this->json('GET', 'sendCode', ['email' => 'my@mail.ru'])
+            ->seeStatusCode(429)
+            ->seeJson(['too_many_attempt_per_hour']);
     }
 }
